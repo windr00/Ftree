@@ -1,6 +1,5 @@
 #include <iostream>
 #include <vector>
-#include <cmath>
 #include <fstream>
 #include <queue>
 #include <cstring>
@@ -83,22 +82,39 @@ void print(T10<C> *tree) {
     }
 }
 
+int pow(int a, int n) {
+    int sum = 1;
+    for (int i = 0; i < n; i++) {
+        sum *= a;
+    }
+    return sum;
+}
+
 template<class C>
 void readFromFile(std::istream &istream, std::vector<C> &vector, std::vector<char> &emptyMap) {
-    char countBytes[sizeof(int)];
-    for (char &countByte : countBytes) {
+    char completeTreeNodesCountBytes[sizeof(int)];
+    for (char &countByte : completeTreeNodesCountBytes) {
         istream >> countByte;
     }
-    for (int i = 0; i < *((int *) (countBytes)); i++) {
-        char temp = 0;
+    int emptyCount = 0;
+    int completeTreeNodesCount = *((int *) (completeTreeNodesCountBytes));
+    for (int i = 0; i < completeTreeNodesCount; i += 8) {
+        unsigned char temp = 0;
         istream >> temp;
         for (int c = 0; c < 8; c++) {
-            char node = (temp & (char) pow(2, c));
-            emptyMap.push_back((node >> 7 - c));
+            if (c >= completeTreeNodesCount - i) {
+                break;
+            }
+            unsigned char node = (temp & (char) pow(2, 7 - c));
+            node >>= 7 - c;
+            if (node == 1) {
+                emptyCount++;
+            }
+            emptyMap.push_back((char) node);
         }
     }
     int size = sizeof(C);
-    for (int i = 0; i < *((int *) (countBytes)); i++) {
+    for (int i = 0; i < completeTreeNodesCount - emptyCount; i++) {
         char temp[size] = {0};
         for (int j = 0; j < size; j++) {
             istream >> temp[j];
@@ -108,10 +124,9 @@ void readFromFile(std::istream &istream, std::vector<C> &vector, std::vector<cha
 }
 
 template<class C>
-void writeToFile(T10<C> *tree, std::ostream &ostream) {
+void writeToFile(T10<C> *tree, const char *emptyNodesMap, int completeTreeNodesCount, std::ostream &ostream) {
     std::vector<char> emptyMap;
     int nodeCount = 0;
-    int shiftCount = 1;
     std::vector<C> levelTraversalData;
     std::queue<T10<C> *> queue;
     queue.push(tree);
@@ -120,24 +135,24 @@ void writeToFile(T10<C> *tree, std::ostream &ostream) {
         levelTraversalData.push_back(*node->GetData());
         queue.pop();
         for (int i = 0; i < 10; i++) {
-            char flag = 1;
             if (node->GetChild(i) != nullptr) {
                 queue.push(node->GetChild(i));
-                flag = 0;
             }
-            if (nodeCount % 8 == 0) {
-                emptyMap.push_back(0);
-            }
-            emptyMap[nodeCount / 8] |= flag;
-            emptyMap[nodeCount / 8] <<= shiftCount++;
-            shiftCount = shiftCount == 8 ? 1 : shiftCount;
         }
-        if (shiftCount <= 7) {
-            emptyMap[nodeCount / 8] <<= 8 - shiftCount;
-        }
+        nodeCount++;
     }
-    for (int i = 0; i < sizeof(nodeCount); i++) {
-        ostream << *(((char *) (&nodeCount)) + i);
+    for (int i = 0; i < sizeof(completeTreeNodesCount); i++) {
+        ostream << *(((char *) (&completeTreeNodesCount)) + i);
+    }
+    for (int i = 0; i < completeTreeNodesCount;) {
+        char temp = 0;
+        int j = 0;
+        for (j = 7; j >= 0; j--, i++) {
+            char temp2 = emptyNodesMap[i];
+            temp2 <<= j;
+            temp |= temp2;
+        }
+        emptyMap.push_back(temp);
     }
     for (int i = 0; i < emptyMap.size(); i++) {
         ostream << emptyMap[i];
@@ -145,7 +160,7 @@ void writeToFile(T10<C> *tree, std::ostream &ostream) {
     for (int i = 0; i < nodeCount; i++) {
         long long data = levelTraversalData[i];
         for (int c = 0; c < sizeof(C); c++) {
-            ostream << ((char *) (&data) + c);
+            ostream << *((char *) (&data) + c);
         }
     }
 
@@ -231,16 +246,9 @@ bool compareResults(std::istream &istream1, std::istream &istream2) {
     return true;
 }
 
-void printHelp() {
-    std::cout << "usage: -hwroc <filename>" << std::endl;
-    std::cout << "-h print this message" << std::endl;
-    std::cout << "-w create the tree in memory" << std::endl;
-    std::cout << "-r read the level traverse data from file and create the tree in memory" << std::endl;
-    std::cout << "-o write the created tree to a file using level traverse order" << std::endl;
-}
 
-void test() {
-    int count = (1 - pow(10, 7)) / (1 - 10);
+void write(const char *path, int level) {
+    int count = (1 - pow(10, level)) / (1 - 10);
     long long *data = new long long[count - 10];
     char *emptyNodes = new char[count];
     memset(emptyNodes, 0, count);
@@ -251,17 +259,128 @@ void test() {
         data[i] = i;
     }
     auto root = T10Factory<long long>::BuildTreeImmediately(data, emptyNodes, count - 10);
-    std::ofstream ofstream;
-    ofstream.open("/home/windr/Desktop/1.txt");
-    writeToFile(root, ofstream);
+    if (path != nullptr) {
+        std::ofstream ofstream;
+        ofstream.open(path);
+        writeToFile(root, emptyNodes, count, ofstream);
+        ofstream.close();
+    }
+    delete root;
     delete emptyNodes;
     delete data;
 }
 
+void read(char *read, char *write) {
+    std::ifstream ifstream;
+    ifstream.open(read);
+    std::vector<char> emptyNodes;
+    std::vector<long long> nodes;
+    readFromFile(ifstream, nodes, emptyNodes);
+    ifstream.close();
+    auto root = T10Factory<long long>::BuildTreeImmediately(nodes.data(), emptyNodes.data(), nodes.size());
+    if (write != nullptr) {
+        std::ofstream ofstream;
+        ofstream.open(write);
+        writeToFile(root, emptyNodes.data(), (int) emptyNodes.size(), ofstream);
+        ofstream.close();
+    }
+    delete root;
+}
+
+void printHelp() {
+    std::cout << "usage:" << std::endl;
+    std::cout << "-h print this message" << std::endl;
+    std::cout << "-w create the tree in memory" << std::endl;
+    std::cout << "-l <positive integer> level of this tree, if not given then set to 7, should only use with -w"
+              << std::endl;
+    std::cout << "-r <file name> read the level traverse data from file and create the tree in memory" << std::endl;
+    std::cout << "-o <file name> write the created tree to a file using level traverse order" << std::endl;
+    std::cout << "-c <file1 name> <file2 name> compare if two trees stored in given files are identical" << std::endl;
+}
+
 int main(int argc, const char **argv) {
-//    if (argc == 1)
-//    const char * op = argv[1];
-//    const char * file = argv[2];
-    test();
+    if (argc == 1) {
+        printHelp();
+    }
+    bool createTree = false;
+    bool readTree = false;
+    bool compare = false;
+    bool output = false;
+    bool setLevel = false;
+    int level = 7;
+    char *outputFile = nullptr;
+    char *readFile = nullptr;
+    char *compareFile1 = nullptr;
+    char *compareFile2 = nullptr;
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "-h")) {
+            printHelp();
+            return 0;
+        }
+        if (!strcmp(argv[i], "-w")) {
+            createTree = true;
+        } else if (!strcmp(argv[i], "-l")) {
+            if (setLevel != false) {
+                printHelp();
+                return -1;
+            }
+            setLevel = true;
+            level = atoi(argv[++i]);
+            if (level <= 0) {
+                printHelp();
+                return -1;
+            }
+        } else if (!strcmp(argv[i], "-r")) {
+            if (readFile != nullptr || readTree != false) {
+                printHelp();
+                return -1;
+            }
+            readFile = (char *) argv[++i];
+            readTree = true;
+        } else if (!strcmp(argv[i], "-o")) {
+            if (outputFile != nullptr || output != false) {
+                printHelp();
+                return -1;
+            }
+            outputFile = (char *) argv[++i];
+            output = true;
+        } else if (!strcmp(argv[i], "-c")) {
+            if ((compareFile1 != nullptr && compareFile2 != nullptr) || compare != false) {
+                printHelp();
+                return -1;
+            }
+            if (i + 2 > argc) {
+                printHelp();
+                return -1;
+            }
+            compareFile1 = (char *) argv[++i];
+            compareFile2 = (char *) argv[++i];
+            compare = true;
+        } else {
+            printHelp();
+            return -1;
+        }
+    }
+
+    if (createTree && !readTree && !compare) {
+        std::cout << "creating a " << level << "-level tree" << std::endl;
+        write(outputFile, level);
+        std::cout << "finished" << std::endl;
+    } else if (readTree && !createTree && !compare && !setLevel) {
+        std::cout << "reading a tree from file" << readFile << std::endl;
+        read(readFile, outputFile);
+        std::cout << "finished" << std::endl;
+    } else if (!readTree && !output && !createTree && compare && !setLevel) {
+        std::ifstream file1, file2;
+        file1.open(compareFile1);
+        file2.open(compareFile2);
+        bool res = compareResults(file1, file2);
+        std::cout << "result is: " << (res ? "identical" : "different");
+        file1.close();
+        file2.close();
+    } else {
+        printHelp();
+        return -1;
+    }
     return 0;
 }
