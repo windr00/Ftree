@@ -4,12 +4,8 @@
 #include <queue>
 #include <cstring>
 
-template<class C>
 class T10 {
 private:
-
-    // the stored data value of this tree node
-    C *_data;
 
     // the children nodes of this tree node
     T10 **_children;
@@ -17,20 +13,20 @@ private:
 public:
 
     //set this data as given value and set all children to nullptr
-    explicit T10(C *data) : _data(data) {
-        _children = new T10<C> *[10];
+    explicit T10() {
+        _children = new T10 *[10];
         for (int i = 0; i < 10; i++) {
             _children[i] = nullptr;
         }
     }
 
-    //set this data as given value and set children as given childs
-    explicit T10(C *data, T10<C> **childs) : _data(data) {
+    //set children as given childs
+    explicit T10(T10 **childs) {
         _children = childs;
     }
 
     //add a child at the first blank child node of this node, return false if no blank child node found
-    bool operator+=(T10<C> *child) {
+    bool operator+=(T10 *child) {
         for (int i = 0; i < 10; i++) {
             if (_children[i] == nullptr) {
                 _children[i] = child;
@@ -42,24 +38,18 @@ public:
     }
 
     //set given tree's data and children to this tree's _data and _children
-    T10<C> *operator=(const T10<C> *tree) {
-        this->_data = tree->_data;
+    T10 *operator=(const T10 *tree) {
         this->_children = tree->_children;
         return this;
     }
 
-    //get the reference of _data object
-    C *GetData() {
-        return _data;
-    }
-
     //get the child node with given index
-    T10<C> *GetChild(int index) {
+    T10 *GetChild(int index) {
         return _children[index];
     }
 
     //replace the child node at index with given node and return the old one
-    T10<C> *Replace(T10<C> *node, int index) {
+    T10 *Replace(T10 *node, int index) {
         T10 *ret = _children[index];
         _children[index] = node;
         return ret;
@@ -70,18 +60,6 @@ public:
     }
 };
 
-//print the data of every node of the given tree using DFS
-template<class C>
-void print(T10<C> *tree) {
-    if (tree == nullptr) {
-        return;
-    }
-    std::cout << *tree->GetData() << std::endl;
-    for (int i = 0; i < 10; i++) {
-        print(tree->GetChild(i));
-    }
-}
-
 int pow(int a, int n) {
     int sum = 1;
     for (int i = 0; i < n; i++) {
@@ -90,8 +68,7 @@ int pow(int a, int n) {
     return sum;
 }
 
-template<class C>
-void readFromFile(std::istream &istream, std::vector<C> &vector, std::vector<char> &emptyMap) {
+void readFromFile(std::istream &istream, int *count, std::vector<char> &emptyMap) {
     char completeTreeNodesCountBytes[sizeof(int)];
     for (char &countByte : completeTreeNodesCountBytes) {
         istream >> countByte;
@@ -113,26 +90,16 @@ void readFromFile(std::istream &istream, std::vector<C> &vector, std::vector<cha
             emptyMap.push_back((char) node);
         }
     }
-    int size = sizeof(C);
-    for (int i = 0; i < completeTreeNodesCount - emptyCount; i++) {
-        char temp[size] = {0};
-        for (int j = 0; j < size; j++) {
-            istream >> temp[j];
-        }
-        vector.push_back(*((long long *) temp));
-    }
+    *count = completeTreeNodesCount - emptyCount;
 }
 
-template<class C>
-void writeToFile(T10<C> *tree, const char *emptyNodesMap, int completeTreeNodesCount, std::ostream &ostream) {
-    std::vector<char> emptyMap;
+void writeToFile(T10 *tree, const char *emptyNodesMap, int completeTreeNodesCount, std::ostream &ostream) {
+    std::vector<unsigned char> emptyMap;
     int nodeCount = 0;
-    std::vector<C> levelTraversalData;
-    std::queue<T10<C> *> queue;
+    std::queue<T10 *> queue;
     queue.push(tree);
     while (!queue.empty()) {
-        T10<C> *node = queue.front();
-        levelTraversalData.push_back(*node->GetData());
+        T10 *node = queue.front();
         queue.pop();
         for (int i = 0; i < 10; i++) {
             if (node->GetChild(i) != nullptr) {
@@ -145,7 +112,7 @@ void writeToFile(T10<C> *tree, const char *emptyNodesMap, int completeTreeNodesC
         ostream << *(((char *) (&completeTreeNodesCount)) + i);
     }
     for (int i = 0; i < completeTreeNodesCount;) {
-        char temp = 0;
+        unsigned char temp = 0;
         int j = 0;
         for (j = 7; j >= 0; j--, i++) {
             char temp2 = emptyNodesMap[i];
@@ -157,41 +124,29 @@ void writeToFile(T10<C> *tree, const char *emptyNodesMap, int completeTreeNodesC
     for (int i = 0; i < emptyMap.size(); i++) {
         ostream << emptyMap[i];
     }
-    for (int i = 0; i < nodeCount; i++) {
-        long long data = levelTraversalData[i];
-        for (int c = 0; c < sizeof(C); c++) {
-            ostream << *((char *) (&data) + c);
-        }
-    }
-
 }
 
 //use this factory to create a T10 tree
-template<class C>
 class T10Factory {
 private :
     //the total sum of tree nodes in the tree
     int _treeNodesCount;
 
-    //data to be stored in the tree, this array is in level traversal order
-    C *_allData;
-
     //the bitmap of empty nodes index in the whole tree, also use level traversal order
     char *_emptyNodesMap;
 
 
-    T10Factory(C *allData, char *emptyNodesMap, int treeNodesCount) :
-            _allData(allData),
+    T10Factory(char *emptyNodesMap, int treeNodesCount) :
             _emptyNodesMap(emptyNodesMap),
             _treeNodesCount(treeNodesCount) {}
 
     //use recursive function to create all tree nodes and connect them
-    T10<C> *_BuildTreeRecursively(int currentNodeIndex, int currentLevelIndex) {
+    T10 *_BuildTreeRecursively(int currentNodeIndex, int currentLevelIndex) {
         if (_treeNodesCount == 0) {
             return nullptr;
         }
         if (currentNodeIndex < _treeNodesCount) {
-            auto *node = new T10<C>(_allData + currentNodeIndex);
+            auto *node = new T10();
             int restNodesCount = _treeNodesCount - currentNodeIndex - 1;
             restNodesCount = restNodesCount > 10 ? 10 : restNodesCount;
             for (int i = 0; i < restNodesCount; i++) {
@@ -209,19 +164,19 @@ private :
 public:
 
     //get an instance of factory, you can manually call BuildTree() later
-    static T10Factory *GetFactoryInstance(C *allData, char *emptyNodesMap, int treeNodesCount) {
-        return new T10Factory<C>(allData, emptyNodesMap, treeNodesCount);
+    static T10Factory *GetFactoryInstance(char *emptyNodesMap, int treeNodesCount) {
+        return new T10Factory(emptyNodesMap, treeNodesCount);
     }
 
     //immediately create a tree using given arguments
-    static T10<C> *BuildTreeImmediately(C *allData, char *emptyNodesMap, int treeNodeCount) {
-        auto factory = T10Factory<C>(allData, emptyNodesMap, treeNodeCount);
+    static T10 *BuildTreeImmediately(char *emptyNodesMap, int treeNodeCount) {
+        auto factory = T10Factory(emptyNodesMap, treeNodeCount);
         auto *ret = factory.BuildTree();
         return ret;
     }
 
     //create the tree use the _BuildTreeRecursively recursive function
-    T10<C> *BuildTree() {
+    T10 *BuildTree() {
         return this->_BuildTreeRecursively(0, 0);
     }
 
@@ -249,16 +204,12 @@ bool compareResults(std::istream &istream1, std::istream &istream2) {
 
 void write(const char *path, int level) {
     int count = (1 - pow(10, level)) / (1 - 10);
-    long long *data = new long long[count - 10];
     char *emptyNodes = new char[count];
     memset(emptyNodes, 0, count);
     for (int i = count - 10; i < count; i++) {
         emptyNodes[i] = 1;
     }
-    for (int i = 0; i < count - 10; i++) {
-        data[i] = i;
-    }
-    auto root = T10Factory<long long>::BuildTreeImmediately(data, emptyNodes, count - 10);
+    auto root = T10Factory::BuildTreeImmediately(emptyNodes, count - 10);
     if (path != nullptr) {
         std::ofstream ofstream;
         ofstream.open(path);
@@ -267,17 +218,16 @@ void write(const char *path, int level) {
     }
     delete root;
     delete emptyNodes;
-    delete data;
 }
 
 void read(char *read, char *write) {
     std::ifstream ifstream;
     ifstream.open(read);
     std::vector<char> emptyNodes;
-    std::vector<long long> nodes;
-    readFromFile(ifstream, nodes, emptyNodes);
+    int count = 0;
+    readFromFile(ifstream, &count, emptyNodes);
     ifstream.close();
-    auto root = T10Factory<long long>::BuildTreeImmediately(nodes.data(), emptyNodes.data(), nodes.size());
+    auto root = T10Factory::BuildTreeImmediately(emptyNodes.data(), count);
     if (write != nullptr) {
         std::ofstream ofstream;
         ofstream.open(write);
@@ -367,7 +317,7 @@ int main(int argc, const char **argv) {
         write(outputFile, level);
         std::cout << "finished" << std::endl;
     } else if (readTree && !createTree && !compare && !setLevel) {
-        std::cout << "reading a tree from file" << readFile << std::endl;
+        std::cout << "reading a tree from file " << readFile << std::endl;
         read(readFile, outputFile);
         std::cout << "finished" << std::endl;
     } else if (!readTree && !output && !createTree && compare && !setLevel) {
@@ -375,7 +325,7 @@ int main(int argc, const char **argv) {
         file1.open(compareFile1);
         file2.open(compareFile2);
         bool res = compareResults(file1, file2);
-        std::cout << "result is: " << (res ? "identical" : "different");
+        std::cout << "result is: " << (res ? "identical" : "different") << std::endl;
         file1.close();
         file2.close();
     } else {
