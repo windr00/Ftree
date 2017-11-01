@@ -251,6 +251,7 @@ void printHelp() {
 int main(int argc, const char **argv) {
     if (argc == 1) {
         printHelp();
+        return 0;
     }
     bool createTree = false;
     bool readTree = false;
