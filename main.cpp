@@ -20,7 +20,7 @@ public:
         }
     }
 
-    //set children as given childs
+    //set children as given children
     explicit T10(T10 **childs) {
         _children = childs;
     }
@@ -60,6 +60,7 @@ public:
     }
 };
 
+//return the result of a^n
 int pow(int a, int n) {
     int sum = 1;
     for (int i = 0; i < n; i++) {
@@ -68,6 +69,7 @@ int pow(int a, int n) {
     return sum;
 }
 
+//read the tree from a file specified by istream, the tree file must be created by this program
 void readFromFile(std::istream &istream, int *count, std::vector<char> &emptyMap) {
     char completeTreeNodesCountBytes[sizeof(int)];
     for (char &countByte : completeTreeNodesCountBytes) {
@@ -93,6 +95,7 @@ void readFromFile(std::istream &istream, int *count, std::vector<char> &emptyMap
     *count = completeTreeNodesCount - emptyCount;
 }
 
+//write the tree in a file specified by ostream, this tree is stored using its traversal order (including the NULL nodes)
 void writeToFile(T10 *tree, const char *emptyNodesMap, int completeTreeNodesCount, std::ostream &ostream) {
     std::vector<unsigned char> emptyMap;
     int nodeCount = 0;
@@ -182,7 +185,7 @@ public:
 
 };
 
-
+//compare two trees which are stored in files
 bool compareResults(std::istream &istream1, std::istream &istream2) {
     while (istream1.eof() || istream2.eof()) {
         if ((istream1.eof() && !istream2.eof()) || (!istream1.eof() && istream2.eof())) {
@@ -201,7 +204,7 @@ bool compareResults(std::istream &istream1, std::istream &istream2) {
     return true;
 }
 
-
+//the function call to write the tree to a file of which the path is path
 void write(const char *path, int level) {
     int count = (1 - pow(10, level)) / (1 - 10);
     char *emptyNodes = new char[count];
@@ -220,6 +223,7 @@ void write(const char *path, int level) {
     delete emptyNodes;
 }
 
+//the function call to read & build the tree in memory, and write the tree into a file
 void read(char *read, char *write) {
     std::ifstream ifstream;
     ifstream.open(read);
@@ -237,6 +241,7 @@ void read(char *read, char *write) {
     delete root;
 }
 
+//print help message
 void printHelp() {
     std::cout << "usage:" << std::endl;
     std::cout << "-h print this message" << std::endl;
@@ -248,6 +253,7 @@ void printHelp() {
     std::cout << "-c <file1 name> <file2 name> compare if two trees stored in given files are identical" << std::endl;
 }
 
+//parse arguments and run specified function
 int main(int argc, const char **argv) {
     if (argc == 1) {
         printHelp();
